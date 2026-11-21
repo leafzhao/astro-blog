@@ -1,0 +1,106 @@
+---
+import { getImage, Image } from "astro:assets";
+import MainGridLayout from "@layouts/MainGridLayout.astro";
+import { Icon } from "astro-icon/components";
+import { formatDateToYYYYMMDD } from "../utils/date-utils";
+import { getAlbums } from "../utils/photo-utils";
+
+// Largest size served in the lightbox (long edge is capped to this width/height)
+const LARGE_MAX_EDGE = 2048;
+
+const albums = await Promise.all(
+	(await getAlbums()).map(async (album) => ({
+		...album,
+		photos: await Promise.all(
+			album.photos.map(async (photo) => {
+				const { width, height } = photo;
+				const scale = Math.min(1, LARGE_MAX_EDGE / Math.max(width, height));
+				const largeWidth = Math.round(width * scale);
+				const largeHeight = Math.round(height * scale);
+				// sharp (Astro's image service) drops EXIF/GPS metadata on output
+				const large = await getImage({
+					src: photo.image,
+					width: largeWidth,
+					height: largeHeight,
+					format: "webp",
+					quality: 85,
+				});
+				return { ...photo, large, largeWidth, largeHeight };
+			}),
+		),
+	})),
+);
+const photoCount = albums.reduce((n, a) => n + a.photos.length, 0);
+---
+
+<MainGridLayout title="照片" description="Leaf Zhao 的照片和相册">
+    <div class="flex flex-col gap-4 mb-4">
+        <div class="card-base px-6 md:px-9 py-6 relative">
+            <h1 class="text-3xl font-bold text-90 relative
+                before:w-1 before:h-5 before:rounded-md before:bg-[var(--primary)]
+                before:absolute before:top-[0.625rem] before:-left-[1.125rem] before:hidden md:before:block">照片</h1>
+            <p class="text-75 mt-2">
+                {albums.length > 0
+                    ? `${albums.length} 个相册 · ${photoCount} 张照片。点击照片可查看大图。`
+                    : "还没有照片。"}
+            </p>
+        </div>
+
+        {albums.map((album) => (
+            <section id={`album-${album.slug}`} class="card-base px-4 md:px-9 py-6 relative">
+                <h2 class="text-2xl font-bold text-90 mb-2 px-2 md:px-0">
+                    <a href={`#album-${album.slug}`} class="transition hover:text-[var(--primary)]">{album.title}</a>
+                </h2>
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-2 mb-3 px-2 md:px-0 text-neutral-500 dark:text-neutral-400">
+                    {album.date && (
+                        <div class="flex items-center">
+                            <div class="meta-icon"><Icon name="material-symbols:calendar-today-outline-rounded" class="text-xl" /></div>
+                            <span class="text-50 text-sm font-medium">{formatDateToYYYYMMDD(album.date)}</span>
+                        </div>
+                    )}
+                    {album.location && (
+                        <div class="flex items-center">
+                            <div class="meta-icon"><Icon name="material-symbols:location-on-outline-rounded" class="text-xl" /></div>
+                            <span class="text-50 text-sm font-medium">{album.location}</span>
+                        </div>
+                    )}
+                    <div class="flex items-center">
+                        <div class="meta-icon"><Icon name="material-symbols:photo-library-outline-rounded" class="text-xl" /></div>
+                        <span class="text-50 text-sm font-medium">{album.photos.length} 张</span>
+                    </div>
+                </div>
+                {album.description && <p class="text-75 mb-4 px-2 md:px-0">{album.description}</p>}
+
+                <div class="photo-gallery grid grid-cols-2 sm:grid-cols-3 gap-2 md:gap-3">
+                    {album.photos.map((photo) => (
+                        <a href={photo.large.src}
+                           data-no-swup
+                           class="photo-item group relative block aspect-square overflow-hidden rounded-xl bg-[var(--btn-regular-bg)] active:scale-[0.98] transition"
+                           data-pswp-width={photo.largeWidth}
+                           data-pswp-height={photo.largeHeight}
+                           data-pswp-caption={photo.caption}
+                           aria-label={photo.caption || `${album.title} - ${photo.file}`}
+                        >
+                            <Image src={photo.image}
+                                   alt={photo.caption || album.title}
+                                   widths={[360, 720]}
+                                   sizes="(min-width: 1024px) 240px, (min-width: 640px) 33vw, 50vw"
+                                   format="webp"
+                                   quality={80}
+                                   loading="lazy"
+                                   class="w-full h-full object-cover transition duration-300 group-hover:scale-105"
+                            />
+                            <div class="absolute inset-0 transition pointer-events-none group-hover:bg-black/10 dark:bg-black/10"></div>
+                            {photo.caption && (
+                                <div class="absolute inset-x-0 bottom-0 px-3 py-2 text-xs text-white/90 bg-gradient-to-t from-black/50 to-transparent
+                                            opacity-0 group-hover:opacity-100 transition pointer-events-none line-clamp-1">
+                                    {photo.caption}
+                                </div>
+                            )}
+                        </a>
+                    ))}
+                </div>
+            </section>
+        ))}
+    </div>
+</MainGridLayout>
