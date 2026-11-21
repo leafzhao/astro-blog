@@ -20,19 +20,12 @@ pnpm-debug.log*
 # macOS-specific files
 .DS_Store
 
-# jetbrains setting folder
-.idea/
+.vercel
 
-# local agent instructions
-AGENTS.md
-.agents/
-.codex/
+package-lock.json
+bun.lockb
+yarn.lock
 
-# pagefind
-public/pagefind
-
-# pnpm
-.pnpm-store
-
-# docker compose
-compose.override.yaml
+# ide
+.idea
+*.iml
